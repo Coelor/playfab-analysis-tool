@@ -1,0 +1,109 @@
+using Microsoft.AspNetCore.Mvc;
+using PlayFabAnalytics.Services;
+using PlayFabAnalytics.Models;
+
+namespace PlayFabAnalytics.Controllers;
+
+[ApiController]
+[Route("api/[controller]")]
+public class PlayersController : ControllerBase
+{
+    private readonly IPlayFabService _playFabService;
+    private readonly IPlayerAnalyticsService _analyticsService;
+
+    public PlayersController(IPlayFabService playFabService, IPlayerAnalyticsService analyticsService)
+    {
+        _playFabService = playFabService;
+        _analyticsService = analyticsService;
+    }
+
+    [HttpGet]
+    public async Task<IActionResult> GetAllPlayers()
+    {
+        try
+        {
+            var players = await _playFabService.GetAllPlayersAsync();
+            return Ok(players);
+        }
+        catch (Exception ex)
+        {
+            return BadRequest(new { error = ex.Message });
+        }
+    }
+
+    [HttpGet("{playFabId}")]
+    public async Task<IActionResult> GetPlayer(string playFabId)
+    {
+        try
+        {
+            var player = await _playFabService.GetPlayerByIdAsync(playFabId);
+            if (player == null)
+            {
+                return NotFound(new { error = "Player not found" });
+            }
+            return Ok(player);
+        }
+        catch (Exception ex)
+        {
+            return BadRequest(new { error = ex.Message });
+        }
+    }
+
+    [HttpGet("{playFabId}/userdata")]
+    public async Task<IActionResult> GetUserData(string playFabId, [FromQuery] string? keys = null)
+    {
+        try
+        {
+            List<string>? keysList = null;
+            if (!string.IsNullOrEmpty(keys))
+            {
+                keysList = keys.Split(',', StringSplitOptions.RemoveEmptyEntries).ToList();
+            }
+
+            var userData = await _playFabService.GetUserDataAsync(playFabId, keysList);
+            if (userData == null)
+            {
+                return NotFound(new { error = "Player not found or no user data available" });
+            }
+
+            return Ok(userData);
+        }
+        catch (Exception ex)
+        {
+            return BadRequest(new { error = ex.Message });
+        }
+    }
+
+    [HttpPost("{playFabId}/userdata")]
+    public async Task<IActionResult> GetUserDataPost(string playFabId, [FromBody] UserDataRequest request)
+    {
+        try
+        {
+            var userData = await _playFabService.GetUserDataAsync(playFabId, request.Keys);
+            if (userData == null)
+            {
+                return NotFound(new { error = "Player not found or no user data available" });
+            }
+
+            return Ok(userData);
+        }
+        catch (Exception ex)
+        {
+            return BadRequest(new { error = ex.Message });
+        }
+    }
+
+    [HttpGet("{playFabId}/analytics")]
+    public async Task<IActionResult> GetPlayerAnalytics(string playFabId)
+    {
+        try
+        {
+            var analytics = await _analyticsService.GetPlayerAnalyticsAsync(playFabId);
+            return Ok(analytics);
+        }
+        catch (Exception ex)
+        {
+            return BadRequest(new { error = ex.Message });
+        }
+    }
+}

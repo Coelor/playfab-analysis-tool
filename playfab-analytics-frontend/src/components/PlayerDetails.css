@@ -1,0 +1,281 @@
+.player-details {
+  padding: 20px;
+  max-width: 1400px;
+  margin: 0 auto;
+}
+
+.player-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 30px;
+  padding-bottom: 20px;
+  border-bottom: 1px solid #eee;
+}
+
+.back-button {
+  background: #6c757d;
+  color: white;
+  border: none;
+  padding: 8px 16px;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 14px;
+}
+
+.back-button:hover {
+  background: #545b62;
+}
+
+.player-title h1 {
+  margin: 0;
+  color: #333;
+  font-size: 28px;
+}
+
+.player-title .player-id {
+  color: #666;
+  font-size: 14px;
+  font-family: monospace;
+}
+
+.refresh-button {
+  background: #007bff;
+  color: white;
+  border: none;
+  padding: 8px 16px;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 14px;
+}
+
+.refresh-button:hover {
+  background: #0056b3;
+}
+
+.loading, .error, .no-data {
+  text-align: center;
+  padding: 40px;
+  color: #666;
+  font-size: 16px;
+}
+
+.error {
+  color: #dc3545;
+}
+
+.retry-button {
+  margin-top: 10px;
+  background: #dc3545;
+  color: white;
+  border: none;
+  padding: 8px 16px;
+  border-radius: 4px;
+  cursor: pointer;
+}
+
+.retry-button:hover {
+  background: #c82333;
+}
+
+/* Tabs */
+.tabs {
+  display: flex;
+  border-bottom: 2px solid #dee2e6;
+  margin-bottom: 30px;
+}
+
+.tab {
+  background: none;
+  border: none;
+  padding: 12px 24px;
+  cursor: pointer;
+  font-size: 16px;
+  color: #666;
+  border-bottom: 2px solid transparent;
+  transition: all 0.2s ease;
+}
+
+.tab:hover {
+  color: #007bff;
+}
+
+.tab.active {
+  color: #007bff;
+  border-bottom-color: #007bff;
+}
+
+/* Details Tab */
+.info-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+  gap: 20px;
+}
+
+.info-card {
+  background: white;
+  border: 1px solid #ddd;
+  border-radius: 8px;
+  padding: 20px;
+  box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+}
+
+.info-card h3 {
+  margin: 0 0 15px 0;
+  color: #333;
+  font-size: 18px;
+  border-bottom: 1px solid #eee;
+  padding-bottom: 10px;
+}
+
+.info-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  margin-bottom: 10px;
+  font-size: 14px;
+}
+
+.info-row .label {
+  color: #666;
+  font-weight: 500;
+  min-width: 120px;
+}
+
+.info-row .value {
+  color: #333;
+  text-align: right;
+  flex: 1;
+  word-break: break-all;
+}
+
+.linked-accounts {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 5px;
+}
+
+.account-badge {
+  background: #e9ecef;
+  color: #495057;
+  padding: 4px 12px;
+  border-radius: 12px;
+  font-size: 12px;
+  font-weight: 500;
+}
+
+.statistics {
+  max-height: 300px;
+  overflow-y: auto;
+}
+
+/* User Data Tab */
+.userdata-grid {
+  display: grid;
+  gap: 20px;
+}
+
+.userdata-summary {
+  background: #f8f9fa;
+  padding: 15px;
+  border-radius: 8px;
+  border-left: 4px solid #007bff;
+}
+
+.userdata-summary h3 {
+  margin: 0 0 10px 0;
+  color: #333;
+}
+
+.userdata-summary p {
+  margin: 5px 0;
+  color: #666;
+}
+
+.userdata-card {
+  background: white;
+  border: 1px solid #ddd;
+  border-radius: 8px;
+  overflow: hidden;
+  box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+}
+
+.userdata-card h4 {
+  margin: 0;
+  padding: 15px;
+  background: #f8f9fa;
+  color: #333;
+  border-bottom: 1px solid #ddd;
+}
+
+.userdata-content {
+  padding: 15px;
+  max-height: 300px;
+  overflow: auto;
+}
+
+.userdata-content pre {
+  margin: 0;
+  font-size: 13px;
+  line-height: 1.4;
+  color: #333;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+.userdata-meta {
+  padding: 10px 15px;
+  background: #f8f9fa;
+  border-top: 1px solid #ddd;
+  display: flex;
+  justify-content: space-between;
+  font-size: 12px;
+  color: #666;
+}
+
+/* Analytics Tab */
+.analytics-tab {
+  min-height: 400px;
+}
+
+/* Responsive design */
+@media (max-width: 768px) {
+  .player-details {
+    padding: 10px;
+  }
+
+  .player-header {
+    flex-direction: column;
+    gap: 10px;
+    align-items: flex-start;
+  }
+
+  .player-title {
+    order: -1;
+  }
+
+  .tabs {
+    flex-wrap: wrap;
+  }
+
+  .tab {
+    flex: 1;
+    min-width: 120px;
+    padding: 10px 12px;
+    font-size: 14px;
+  }
+
+  .info-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .info-row {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 5px;
+  }
+
+  .info-row .value {
+    text-align: left;
+  }
+}
