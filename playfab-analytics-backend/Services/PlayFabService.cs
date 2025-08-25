@@ -270,35 +270,53 @@ public class PlayFabService : IPlayFabService
     {
         try
         {
-            // First, get an entity token for the title to access player entities
-            var entityRequest = new PlayFab.AuthenticationModels.GetEntityTokenRequest();
-            var entityTokenResult = await PlayFabAuthenticationAPI.GetEntityTokenAsync(entityRequest);
-
-            if (entityTokenResult.Error != null)
+            // Resolve the player's entity ID using their PlayFab ID
+            var accountInfoResult = await PlayFabAdminAPI.GetUserAccountInfoAsync(
+                new PlayFab.AdminModels.LookupUserAccountInfoRequest { PlayFabId = playFabId });
+            if (accountInfoResult.Error != null ||
+                accountInfoResult.Result?.UserInfo?.TitleInfo?.TitlePlayerAccount?.Id == null)
             {
-                Console.WriteLine($"PlayFab Entity Token Error: {entityTokenResult.Error.ErrorMessage}");
+                Console.WriteLine(
+                    $"PlayFab GetUserAccountInfo Error: {accountInfoResult.Error?.ErrorMessage ?? "Missing TitlePlayerAccount"}");
                 return null;
             }
 
-            Console.WriteLine($"Entity Token acquired for: {entityTokenResult.Result?.Entity?.Type} - {entityTokenResult.Result?.Entity?.Id}");
+            var entityId = accountInfoResult.Result.UserInfo.TitleInfo.TitlePlayerAccount.Id;
+
+            // Acquire an entity token for the title entity (not the player)
+            var titleEntityResult = await PlayFabAuthenticationAPI.GetEntityTokenAsync(
+                new PlayFab.AuthenticationModels.GetEntityTokenRequest());
+
+            if (titleEntityResult.Error != null)
+            {
+                Console.WriteLine($"PlayFab Title Entity Token Error: {titleEntityResult.Error.ErrorMessage}");
+                return null;
+            }
+
+            var authContext = new PlayFab.PlayFabAuthenticationContext
+            {
+                EntityToken = titleEntityResult.Result?.EntityToken,
+                EntityId = titleEntityResult.Result?.Entity?.Id,
+                EntityType = titleEntityResult.Result?.Entity?.Type
+            };
 
             // Now get the files for the player using the title_player_account entity type
             var getFilesRequest = new PlayFab.DataModels.GetFilesRequest
             {
                 Entity = new PlayFab.DataModels.EntityKey
                 {
-                    Id = playFabId,
+                    Id = entityId,
                     Type = "title_player_account"
                 }
             };
 
-            var filesResult = await PlayFabDataAPI.GetFilesAsync(getFilesRequest);
+            var filesResult = await PlayFabDataAPI.GetFilesAsync(getFilesRequest, authContext);
 
             if (filesResult.Error != null)
             {
                 Console.WriteLine($"PlayFab GetFiles Error: {filesResult.Error.ErrorMessage}");
-                
-                // Return empty response for now instead of null to indicate no files rather than error
+
+                // Return empty response instead of null to indicate no files
                 return new PlayerFilesResponse
                 {
                     PlayFabId = playFabId,
@@ -353,6 +371,99 @@ public class PlayFabService : IPlayFabService
         catch (Exception ex)
         {
             Console.WriteLine($"Error downloading file {fileName} for player {playFabId}: {ex.Message}");
+            return null;
+        }
+    }
+
+    public async Task<PlayerObjectsResponse?> GetPlayerObjectsAsync(string playFabId)
+    {
+        try
+        {
+            // Resolve the player's entity ID using their PlayFab ID
+            var accountInfoResult = await PlayFabAdminAPI.GetUserAccountInfoAsync(
+                new PlayFab.AdminModels.LookupUserAccountInfoRequest { PlayFabId = playFabId });
+            if (accountInfoResult.Error != null ||
+                accountInfoResult.Result?.UserInfo?.TitleInfo?.TitlePlayerAccount?.Id == null)
+            {
+                Console.WriteLine(
+                    $"PlayFab GetUserAccountInfo Error: {accountInfoResult.Error?.ErrorMessage ?? "Missing TitlePlayerAccount"}");
+                return null;
+            }
+
+            var entityId = accountInfoResult.Result.UserInfo.TitleInfo.TitlePlayerAccount.Id;
+
+            // Acquire an entity token for the title entity (not the player)
+            var titleEntityResult = await PlayFabAuthenticationAPI.GetEntityTokenAsync(
+                new PlayFab.AuthenticationModels.GetEntityTokenRequest());
+
+            if (titleEntityResult.Error != null)
+            {
+                Console.WriteLine($"PlayFab Title Entity Token Error: {titleEntityResult.Error.ErrorMessage}");
+                return null;
+            }
+
+            var authContext = new PlayFab.PlayFabAuthenticationContext
+            {
+                EntityToken = titleEntityResult.Result?.EntityToken,
+                EntityId = titleEntityResult.Result?.Entity?.Id,
+                EntityType = titleEntityResult.Result?.Entity?.Type
+            };
+
+            // Get objects for the player using the title_player_account entity type
+            var getObjectsRequest = new PlayFab.DataModels.GetObjectsRequest
+            {
+                Entity = new PlayFab.DataModels.EntityKey
+                {
+                    Id = entityId,
+                    Type = "title_player_account"
+                },
+                EscapeObject = false
+            };
+
+            var objectsResult = await PlayFabDataAPI.GetObjectsAsync(getObjectsRequest, authContext);
+
+            if (objectsResult.Error != null)
+            {
+                Console.WriteLine($"PlayFab GetObjects Error: {objectsResult.Error.ErrorMessage}");
+
+                // Return empty response instead of null to indicate no objects
+                return new PlayerObjectsResponse
+                {
+                    PlayFabId = playFabId,
+                    Objects = new List<PlayerObject>(),
+                    TotalObjects = 0,
+                    ProfileVersion = 0
+                };
+            }
+
+            var response = new PlayerObjectsResponse
+            {
+                PlayFabId = playFabId,
+                ProfileVersion = objectsResult.Result?.ProfileVersion ?? 0
+            };
+
+            // Process the objects
+            if (objectsResult.Result?.Objects != null)
+            {
+                foreach (var obj in objectsResult.Result.Objects)
+                {
+                    response.Objects.Add(new PlayerObject
+                    {
+                        ObjectName = obj.Key ?? string.Empty,
+                        ObjectData = obj.Value?.DataObject,
+                        LastModified = null // Objects API doesn't provide last modified date
+                    });
+                }
+            }
+
+            response.TotalObjects = response.Objects.Count;
+
+            Console.WriteLine($"Retrieved {response.TotalObjects} objects for player {playFabId}");
+            return response;
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error getting player objects for {playFabId}: {ex.Message}");
             return null;
         }
     }

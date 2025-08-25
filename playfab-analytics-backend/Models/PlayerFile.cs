@@ -16,3 +16,18 @@ public class PlayerFilesResponse
     public int TotalFiles { get; set; }
     public long TotalSizeBytes { get; set; }
 }
+
+public class PlayerObject
+{
+    public string ObjectName { get; set; } = string.Empty;
+    public object? ObjectData { get; set; }
+    public DateTime? LastModified { get; set; }
+}
+
+public class PlayerObjectsResponse
+{
+    public string PlayFabId { get; set; } = string.Empty;
+    public List<PlayerObject> Objects { get; set; } = new();
+    public int TotalObjects { get; set; }
+    public int ProfileVersion { get; set; }
+}

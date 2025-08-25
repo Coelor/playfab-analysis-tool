@@ -149,4 +149,22 @@ public class PlayersController : ControllerBase
         }
     }
 
+    [HttpGet("{playFabId}/objects")]
+    public async Task<IActionResult> GetPlayerObjects(string playFabId)
+    {
+        try
+        {
+            var objects = await _playFabService.GetPlayerObjectsAsync(playFabId);
+            if (objects == null)
+            {
+                return NotFound(new { error = "Player not found or no objects available" });
+            }
+            return Ok(objects);
+        }
+        catch (Exception ex)
+        {
+            return BadRequest(new { error = ex.Message });
+        }
+    }
+
 }
