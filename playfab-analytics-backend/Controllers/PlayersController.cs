@@ -106,4 +106,47 @@ public class PlayersController : ControllerBase
             return BadRequest(new { error = ex.Message });
         }
     }
+
+    [HttpGet("{playFabId}/files")]
+    public async Task<IActionResult> GetPlayerFiles(string playFabId)
+    {
+        try
+        {
+            var files = await _playFabService.GetPlayerFilesAsync(playFabId);
+            if (files == null)
+            {
+                return NotFound(new { error = "Player not found or no files available" });
+            }
+            return Ok(files);
+        }
+        catch (Exception ex)
+        {
+            return BadRequest(new { error = ex.Message });
+        }
+    }
+
+    [HttpGet("{playFabId}/files/{fileName}/download")]
+    public async Task<IActionResult> DownloadPlayerFile(string playFabId, string fileName)
+    {
+        try
+        {
+            var fileContent = await _playFabService.DownloadPlayerFileAsync(playFabId, fileName);
+            if (fileContent == null)
+            {
+                return NotFound(new { error = "File not found" });
+            }
+
+            // Get file info to determine content type
+            var filesResponse = await _playFabService.GetPlayerFilesAsync(playFabId);
+            var file = filesResponse?.Files.FirstOrDefault(f => f.FileName == fileName);
+            var contentType = file?.ContentType ?? "application/octet-stream";
+
+            return File(fileContent, contentType, fileName);
+        }
+        catch (Exception ex)
+        {
+            return BadRequest(new { error = ex.Message });
+        }
+    }
+
 }

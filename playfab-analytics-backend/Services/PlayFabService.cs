@@ -2,6 +2,8 @@ using Microsoft.Extensions.Options;
 using PlayFab;
 using PlayFab.AdminModels;
 using PlayFab.ServerModels;
+using PlayFab.AuthenticationModels;
+using PlayFab.DataModels;
 using PlayFabAnalytics.Configuration;
 using PlayFabAnalytics.Models;
 
@@ -263,5 +265,97 @@ public class PlayFabService : IPlayFabService
             }
         };
     }
+
+    public async Task<PlayerFilesResponse?> GetPlayerFilesAsync(string playFabId)
+    {
+        try
+        {
+            // First, get an entity token for the title to access player entities
+            var entityRequest = new PlayFab.AuthenticationModels.GetEntityTokenRequest();
+            var entityTokenResult = await PlayFabAuthenticationAPI.GetEntityTokenAsync(entityRequest);
+
+            if (entityTokenResult.Error != null)
+            {
+                Console.WriteLine($"PlayFab Entity Token Error: {entityTokenResult.Error.ErrorMessage}");
+                return null;
+            }
+
+            Console.WriteLine($"Entity Token acquired for: {entityTokenResult.Result?.Entity?.Type} - {entityTokenResult.Result?.Entity?.Id}");
+
+            // Now get the files for the player using the title_player_account entity type
+            var getFilesRequest = new PlayFab.DataModels.GetFilesRequest
+            {
+                Entity = new PlayFab.DataModels.EntityKey
+                {
+                    Id = playFabId,
+                    Type = "title_player_account"
+                }
+            };
+
+            var filesResult = await PlayFabDataAPI.GetFilesAsync(getFilesRequest);
+
+            if (filesResult.Error != null)
+            {
+                Console.WriteLine($"PlayFab GetFiles Error: {filesResult.Error.ErrorMessage}");
+                
+                // Return empty response for now instead of null to indicate no files rather than error
+                return new PlayerFilesResponse
+                {
+                    PlayFabId = playFabId,
+                    Files = new List<PlayerFile>(),
+                    TotalFiles = 0,
+                    TotalSizeBytes = 0
+                };
+            }
+
+            var response = new PlayerFilesResponse
+            {
+                PlayFabId = playFabId
+            };
+
+            // Process the file metadata
+            if (filesResult.Result?.Metadata != null)
+            {
+                foreach (var fileMetadata in filesResult.Result.Metadata)
+                {
+                    response.Files.Add(new PlayerFile
+                    {
+                        FileName = fileMetadata.Key ?? string.Empty,
+                        FileSize = fileMetadata.Value?.Size ?? 0,
+                        LastModified = fileMetadata.Value?.LastModified ?? DateTime.MinValue,
+                        ContentType = "application/octet-stream", // Default content type, as ContentType may not be available
+                        DownloadUrl = fileMetadata.Value?.DownloadUrl ?? string.Empty
+                    });
+                }
+            }
+
+            response.TotalFiles = response.Files.Count;
+            response.TotalSizeBytes = response.Files.Sum(f => f.FileSize);
+
+            Console.WriteLine($"Retrieved {response.TotalFiles} files for player {playFabId}");
+            return response;
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error getting player files for {playFabId}: {ex.Message}");
+            return null;
+        }
+    }
+
+    public async Task<byte[]?> DownloadPlayerFileAsync(string playFabId, string fileName)
+    {
+        try
+        {
+            await Task.Delay(10); // Temporary to avoid async warning
+            Console.WriteLine($"File download not yet implemented for {fileName} from player {playFabId}");
+            return null;
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error downloading file {fileName} for player {playFabId}: {ex.Message}");
+            return null;
+        }
+    }
+
 
 }
