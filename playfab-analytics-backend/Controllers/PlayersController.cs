@@ -1,170 +1,131 @@
 using Microsoft.AspNetCore.Mvc;
-using PlayFabAnalytics.Services;
-using PlayFabAnalytics.Models;
+using PlayFabAnalytics.Services.Players;
+using PlayFabAnalytics.Services.Files;
+using PlayFabAnalytics.Services.Objects;
+using PlayFabAnalytics.Services.Analytics;
+using PlayFabAnalytics.Models.Requests;
+using PlayFabAnalytics.Common.Extensions;
 
 namespace PlayFabAnalytics.Controllers;
 
+/// <summary>
+/// Read-only controller for PlayFab player data analytics.
+/// Provides access to player information, user data, files, and objects.
+/// No data modification endpoints are exposed.
+/// </summary>
 [ApiController]
 [Route("api/[controller]")]
 public class PlayersController : ControllerBase
 {
-    private readonly IPlayFabService _playFabService;
+    private readonly IPlayerService _playerService;
+    private readonly IFileService _fileService;
+    private readonly IObjectService _objectService;
     private readonly IPlayerAnalyticsService _analyticsService;
 
-    public PlayersController(IPlayFabService playFabService, IPlayerAnalyticsService analyticsService)
+    public PlayersController(
+        IPlayerService playerService,
+        IFileService fileService,
+        IObjectService objectService,
+        IPlayerAnalyticsService analyticsService)
     {
-        _playFabService = playFabService;
+        _playerService = playerService;
+        _fileService = fileService;
+        _objectService = objectService;
         _analyticsService = analyticsService;
     }
 
     [HttpGet]
-    public async Task<IActionResult> GetAllPlayers()
+    public async Task<IActionResult> GetAllPlayers([FromQuery] GetPlayersRequest request)
     {
-        try
-        {
-            var players = await _playFabService.GetAllPlayersAsync();
-            return Ok(players);
-        }
-        catch (Exception ex)
-        {
-            return BadRequest(new { error = ex.Message });
-        }
+        var result = await _playerService.GetAllPlayersAsync(request);
+        return this.ApiSuccess(result);
     }
 
     [HttpGet("{playFabId}")]
     public async Task<IActionResult> GetPlayer(string playFabId)
     {
-        try
+        var player = await _playerService.GetPlayerByIdAsync(playFabId);
+        if (player == null)
         {
-            var player = await _playFabService.GetPlayerByIdAsync(playFabId);
-            if (player == null)
-            {
-                return NotFound(new { error = "Player not found" });
-            }
-            return Ok(player);
+            return NotFound(this.ApiError("Player not found"));
         }
-        catch (Exception ex)
-        {
-            return BadRequest(new { error = ex.Message });
-        }
+        return this.ApiSuccess(player);
     }
 
     [HttpGet("{playFabId}/userdata")]
     public async Task<IActionResult> GetUserData(string playFabId, [FromQuery] string? keys = null)
     {
-        try
+        List<string>? keysList = null;
+        if (!string.IsNullOrEmpty(keys))
         {
-            List<string>? keysList = null;
-            if (!string.IsNullOrEmpty(keys))
-            {
-                keysList = keys.Split(',', StringSplitOptions.RemoveEmptyEntries).ToList();
-            }
-
-            var userData = await _playFabService.GetUserDataAsync(playFabId, keysList);
-            if (userData == null)
-            {
-                return NotFound(new { error = "Player not found or no user data available" });
-            }
-
-            return Ok(userData);
+            keysList = keys.Split(',', StringSplitOptions.RemoveEmptyEntries).ToList();
         }
-        catch (Exception ex)
+
+        var userData = await _playerService.GetUserDataAsync(playFabId, keysList);
+        if (userData == null)
         {
-            return BadRequest(new { error = ex.Message });
+            return NotFound(this.ApiError("Player not found or no user data available"));
         }
+
+        return this.ApiSuccess(userData);
     }
 
-    [HttpPost("{playFabId}/userdata")]
-    public async Task<IActionResult> GetUserDataPost(string playFabId, [FromBody] UserDataRequest request)
-    {
-        try
-        {
-            var userData = await _playFabService.GetUserDataAsync(playFabId, request.Keys);
-            if (userData == null)
-            {
-                return NotFound(new { error = "Player not found or no user data available" });
-            }
-
-            return Ok(userData);
-        }
-        catch (Exception ex)
-        {
-            return BadRequest(new { error = ex.Message });
-        }
-    }
 
     [HttpGet("{playFabId}/analytics")]
     public async Task<IActionResult> GetPlayerAnalytics(string playFabId)
     {
-        try
-        {
-            var analytics = await _analyticsService.GetPlayerAnalyticsAsync(playFabId);
-            return Ok(analytics);
-        }
-        catch (Exception ex)
-        {
-            return BadRequest(new { error = ex.Message });
-        }
+        var analytics = await _analyticsService.GetPlayerAnalyticsAsync(playFabId);
+        return this.ApiSuccess(analytics);
     }
 
     [HttpGet("{playFabId}/files")]
     public async Task<IActionResult> GetPlayerFiles(string playFabId)
     {
-        try
+        var files = await _fileService.GetPlayerFilesAsync(playFabId);
+        if (files == null)
         {
-            var files = await _playFabService.GetPlayerFilesAsync(playFabId);
-            if (files == null)
-            {
-                return NotFound(new { error = "Player not found or no files available" });
-            }
-            return Ok(files);
+            return NotFound(this.ApiError("Player not found or no files available"));
         }
-        catch (Exception ex)
-        {
-            return BadRequest(new { error = ex.Message });
-        }
+        return this.ApiSuccess(files);
     }
 
     [HttpGet("{playFabId}/files/{fileName}/download")]
     public async Task<IActionResult> DownloadPlayerFile(string playFabId, string fileName)
     {
-        try
+        var fileContent = await _fileService.DownloadPlayerFileAsync(playFabId, fileName);
+        if (fileContent == null)
         {
-            var fileContent = await _playFabService.DownloadPlayerFileAsync(playFabId, fileName);
-            if (fileContent == null)
-            {
-                return NotFound(new { error = "File not found" });
-            }
-
-            // Get file info to determine content type
-            var filesResponse = await _playFabService.GetPlayerFilesAsync(playFabId);
-            var file = filesResponse?.Files.FirstOrDefault(f => f.FileName == fileName);
-            var contentType = file?.ContentType ?? "application/octet-stream";
-
-            return File(fileContent, contentType, fileName);
+            return NotFound(this.ApiError("File not found"));
         }
-        catch (Exception ex)
+
+        // Get file info to determine content type
+        var filesResponse = await _fileService.GetPlayerFilesAsync(playFabId);
+        var file = filesResponse?.Files.FirstOrDefault(f => f.FileName == fileName);
+        var contentType = file?.ContentType ?? "application/octet-stream";
+
+        return File(fileContent, contentType, fileName);
+    }
+
+    [HttpGet("{playFabId}/files/{fileName}/analyze")]
+    public async Task<IActionResult> AnalyzePlayerFile(string playFabId, string fileName)
+    {
+        var analysis = await _fileService.AnalyzeFileAsync(playFabId, fileName);
+        if (analysis == null)
         {
-            return BadRequest(new { error = ex.Message });
+            return NotFound(this.ApiError("File not found"));
         }
+        return this.ApiSuccess(analysis);
     }
 
     [HttpGet("{playFabId}/objects")]
     public async Task<IActionResult> GetPlayerObjects(string playFabId)
     {
-        try
+        var objects = await _objectService.GetPlayerObjectsAsync(playFabId);
+        if (objects == null)
         {
-            var objects = await _playFabService.GetPlayerObjectsAsync(playFabId);
-            if (objects == null)
-            {
-                return NotFound(new { error = "Player not found or no objects available" });
-            }
-            return Ok(objects);
+            return NotFound(this.ApiError("Player not found or no objects available"));
         }
-        catch (Exception ex)
-        {
-            return BadRequest(new { error = ex.Message });
-        }
+        return this.ApiSuccess(objects);
     }
 
 }

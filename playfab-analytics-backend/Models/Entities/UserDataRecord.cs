@@ -1,4 +1,4 @@
-namespace PlayFabAnalytics.Models;
+namespace PlayFabAnalytics.Models.Entities;
 
 public class UserDataRecord
 {
@@ -13,9 +13,4 @@ public class UserDataResponse
     public string PlayFabId { get; set; } = string.Empty;
     public Dictionary<string, UserDataRecord> Data { get; set; } = new();
     public uint DataVersion { get; set; }
-}
-
-public class UserDataRequest
-{
-    public List<string>? Keys { get; set; }
 }

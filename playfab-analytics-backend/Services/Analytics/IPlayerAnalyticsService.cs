@@ -1,4 +1,4 @@
-namespace PlayFabAnalytics.Services;
+namespace PlayFabAnalytics.Services.Analytics;
 
 public interface IPlayerAnalyticsService
 {

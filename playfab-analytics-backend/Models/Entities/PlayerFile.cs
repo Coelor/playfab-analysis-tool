@@ -1,4 +1,4 @@
-namespace PlayFabAnalytics.Models;
+namespace PlayFabAnalytics.Models.Entities;
 
 public class PlayerFile
 {

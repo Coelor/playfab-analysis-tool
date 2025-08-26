@@ -1,5 +1,6 @@
-using PlayFabAnalytics.Services;
 using PlayFabAnalytics.Configuration;
+using PlayFabAnalytics.Common.Extensions;
+using PlayFabAnalytics.Middleware;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -12,9 +13,8 @@ builder.Services.AddSwaggerGen();
 builder.Services.Configure<PlayFabSettings>(
     builder.Configuration.GetSection("PlayFab"));
 
-// Register application services
-builder.Services.AddScoped<IPlayFabService, PlayFabService>();
-builder.Services.AddScoped<IPlayerAnalyticsService, PlayerAnalyticsService>();
+// Register application services using extension method
+builder.Services.AddPlayFabServices();
 
 // Add CORS
 builder.Services.AddCors(options =>
@@ -35,6 +35,9 @@ if (app.Environment.IsDevelopment())
     app.UseSwagger();
     app.UseSwaggerUI();
 }
+
+// Add error handling middleware
+app.UseMiddleware<ErrorHandlingMiddleware>();
 
 app.UseHttpsRedirection();
 app.UseCors("AllowAll");
