@@ -1,7 +1,8 @@
 import React, { useState } from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
-import PlayerList from './components/PlayerList';
+import PlayerListRefactored from './components/PlayerListRefactored';
 import PlayerDetails from './components/PlayerDetails';
+import ErrorBoundary from './components/ErrorBoundary';
 import './App.css';
 
 const App: React.FC = () => {
@@ -17,46 +18,50 @@ const App: React.FC = () => {
 
   return (
     <Router>
-      <div className="App">
-        <header className="app-header">
-          <div className="header-content">
-            <h1>PlayFab Analytics Dashboard</h1>
-            <div className="header-info">
-              <span className="backend-url">Backend: http://localhost:5000</span>
+      <ErrorBoundary>
+        <div className="App">
+          <header className="app-header">
+            <div className="header-content">
+              <h1>PlayFab Analytics Dashboard</h1>
+              <div className="header-info">
+                <span className="backend-url">Backend: http://localhost:5000</span>
+              </div>
             </div>
-          </div>
-        </header>
+          </header>
 
-        <main className="app-main">
-          <Routes>
-            <Route 
-              path="/" 
-              element={
-                selectedPlayerId ? (
-                  <PlayerDetails 
-                    playFabId={selectedPlayerId} 
-                    onBack={handleBackToList} 
-                  />
-                ) : (
-                  <PlayerList onPlayerSelect={handlePlayerSelect} />
-                )
-              } 
-            />
-            <Route 
-              path="/player/:playFabId" 
-              element={<PlayerDetailsRoute onBack={handleBackToList} />} 
-            />
-            <Route path="*" element={<Navigate to="/" replace />} />
-          </Routes>
-        </main>
+          <main className="app-main">
+            <ErrorBoundary>
+              <Routes>
+                <Route 
+                  path="/" 
+                  element={
+                    selectedPlayerId ? (
+                      <PlayerDetails 
+                        playFabId={selectedPlayerId} 
+                        onBack={handleBackToList} 
+                      />
+                    ) : (
+                      <PlayerListRefactored onPlayerSelect={handlePlayerSelect} />
+                    )
+                  } 
+                />
+                <Route 
+                  path="/player/:playFabId" 
+                  element={<PlayerDetailsRoute onBack={handleBackToList} />} 
+                />
+                <Route path="*" element={<Navigate to="/" replace />} />
+              </Routes>
+            </ErrorBoundary>
+          </main>
 
-        <footer className="app-footer">
-          <div className="footer-content">
-            <p>PlayFab Analytics Tool - Built with React & TypeScript</p>
-            <p>Make sure your .NET backend is running on port 5000</p>
-          </div>
-        </footer>
-      </div>
+          <footer className="app-footer">
+            <div className="footer-content">
+              <p>PlayFab Analytics Tool - Built with React & TypeScript</p>
+              <p>Make sure your .NET backend is running on port 5000</p>
+            </div>
+          </footer>
+        </div>
+      </ErrorBoundary>
     </Router>
   );
 };

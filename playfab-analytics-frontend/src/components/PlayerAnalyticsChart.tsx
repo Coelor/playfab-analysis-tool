@@ -10,7 +10,7 @@ import {
   ArcElement,
 } from 'chart.js';
 import { Bar, Doughnut } from 'react-chartjs-2';
-import { PlayerAnalyticsDto } from '../types/Player';
+import { PlayerAnalyticsDto } from '../types';
 import ErrorBoundary from './ErrorBoundary';
 import './PlayerAnalyticsChart.css';
 import './ErrorBoundary.css';

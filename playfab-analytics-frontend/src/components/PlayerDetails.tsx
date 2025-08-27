@@ -1,7 +1,8 @@
-import React, { useState, useEffect } from 'react';
-import { PlayerDto, UserDataResponseDto, PlayerAnalyticsDto, FilesResponseDto, ObjectsResponseDto } from '../types/Player';
-import { playersApi, handleApiError } from '../services/api';
+import React, { useState } from 'react';
+import { usePlayerDetails } from '../hooks/usePlayerDetails';
 import PlayerAnalyticsChart from './PlayerAnalyticsChart';
+import LoadingSpinner from './ui/LoadingSpinner';
+import ErrorMessage from './ui/ErrorMessage';
 import './PlayerDetails.css';
 
 interface PlayerDetailsProps {
@@ -10,65 +11,20 @@ interface PlayerDetailsProps {
 }
 
 const PlayerDetails: React.FC<PlayerDetailsProps> = ({ playFabId, onBack }) => {
-  const [player, setPlayer] = useState<PlayerDto | null>(null);
-  const [userData, setUserData] = useState<UserDataResponseDto | null>(null);
-  const [analytics, setAnalytics] = useState<PlayerAnalyticsDto | null>(null);
-  const [files, setFiles] = useState<FilesResponseDto | null>(null);
-  const [objects, setObjects] = useState<ObjectsResponseDto | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+  const {
+    player,
+    userData,
+    analytics,
+    files,
+    objects,
+    loading,
+    error,
+    refetch,
+    downloadFile,
+    analyzeFile,
+  } = usePlayerDetails(playFabId);
+
   const [activeTab, setActiveTab] = useState<'details' | 'userdata' | 'analytics' | 'files' | 'objects'>('details');
-
-  useEffect(() => {
-    fetchPlayerData();
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [playFabId]);
-
-  const fetchPlayerData = async () => {
-    try {
-      setLoading(true);
-      setError(null);
-
-      // Fetch all player data in parallel
-      const [playerData, userDataResponse, analyticsData, filesResponse, objectsResponse] = await Promise.allSettled([
-        playersApi.getPlayerById(playFabId),
-        playersApi.getUserData(playFabId),
-        playersApi.getPlayerAnalytics(playFabId),
-        playersApi.getPlayerFiles(playFabId),
-        playersApi.getPlayerObjects(playFabId),
-      ]);
-
-      if (playerData.status === 'fulfilled') {
-        setPlayer(playerData.value);
-      }
-
-      if (userDataResponse.status === 'fulfilled') {
-        setUserData(userDataResponse.value);
-      }
-
-      if (analyticsData.status === 'fulfilled') {
-        setAnalytics(analyticsData.value);
-      }
-
-      if (filesResponse.status === 'fulfilled') {
-        setFiles(filesResponse.value);
-      }
-
-      if (objectsResponse.status === 'fulfilled') {
-        setObjects(objectsResponse.value);
-      }
-
-      if (playerData.status === 'rejected') {
-        throw new Error('Failed to fetch player data');
-      }
-    } catch (err) {
-      const errorMessage = handleApiError(err);
-      setError(`Failed to fetch player data: ${errorMessage}`);
-      console.error('Error fetching player data:', err);
-    } finally {
-      setLoading(false);
-    }
-  };
 
   const formatDate = (dateString?: string) => {
     if (!dateString) return 'N/A';
@@ -81,29 +37,19 @@ const PlayerDetails: React.FC<PlayerDetailsProps> = ({ playFabId, onBack }) => {
     return String(value);
   };
 
-  const downloadFile = async (fileName: string) => {
+  const handleDownloadFile = async (fileName: string) => {
     try {
-      const blob = await playersApi.downloadPlayerFile(playFabId, fileName);
-      const url = window.URL.createObjectURL(blob);
-      const link = document.createElement('a');
-      link.href = url;
-      link.download = fileName;
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
-      window.URL.revokeObjectURL(url);
+      await downloadFile(fileName);
     } catch (err) {
-      console.error('Error downloading file:', err);
       alert('Failed to download file');
     }
   };
 
-  const analyzeFile = async (fileName: string) => {
+  const handleAnalyzeFile = async (fileName: string) => {
     try {
-      const analysis = await playersApi.analyzePlayerFile(playFabId, fileName);
+      const analysis = await analyzeFile(fileName);
       alert(`File Analysis:\nRows: ${analysis.rowCount}\nHeaders: ${analysis.headers.join(', ')}`);
     } catch (err) {
-      console.error('Error analyzing file:', err);
       alert('Failed to analyze file');
     }
   };
@@ -112,7 +58,7 @@ const PlayerDetails: React.FC<PlayerDetailsProps> = ({ playFabId, onBack }) => {
     return (
       <div className="player-details">
         <button onClick={onBack} className="back-button">← Back to Players</button>
-        <div className="loading">Loading player details...</div>
+        <LoadingSpinner message="Loading player details..." />
       </div>
     );
   }
@@ -121,12 +67,7 @@ const PlayerDetails: React.FC<PlayerDetailsProps> = ({ playFabId, onBack }) => {
     return (
       <div className="player-details">
         <button onClick={onBack} className="back-button">← Back to Players</button>
-        <div className="error">
-          {error || 'Player not found'}
-          <button onClick={fetchPlayerData} className="retry-button">
-            Retry
-          </button>
-        </div>
+        <ErrorMessage message={error || 'Player not found'} onRetry={refetch} />
       </div>
     );
   }
@@ -139,7 +80,7 @@ const PlayerDetails: React.FC<PlayerDetailsProps> = ({ playFabId, onBack }) => {
           <h1>{player.displayName || 'Unknown Player'}</h1>
           <span className="player-id">{player.playFabId}</span>
         </div>
-        <button onClick={fetchPlayerData} className="refresh-button">
+        <button onClick={refetch} className="refresh-button">
           Refresh
         </button>
       </div>
@@ -312,14 +253,14 @@ const PlayerDetails: React.FC<PlayerDetailsProps> = ({ playFabId, onBack }) => {
                     </div>
                     <div className="file-actions">
                       <button 
-                        onClick={() => downloadFile(file.fileName)}
+                        onClick={() => handleDownloadFile(file.fileName)}
                         className="download-button"
                       >
                         Download
                       </button>
                       {file.contentType.includes('csv') && (
                         <button 
-                          onClick={() => analyzeFile(file.fileName)}
+                          onClick={() => handleAnalyzeFile(file.fileName)}
                           className="analyze-button"
                         >
                           Analyze

@@ -1,0 +1,23 @@
+.players-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+  gap: 1.5rem;
+  padding: 1rem 0;
+}
+
+.no-players {
+  text-align: center;
+  padding: 3rem 1rem;
+  color: #666;
+}
+
+.no-players p {
+  margin: 0.5rem 0;
+}
+
+@media (max-width: 768px) {
+  .players-grid {
+    grid-template-columns: 1fr;
+    gap: 1rem;
+  }
+}
