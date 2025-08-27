@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import { Player, UserDataResponse, PlayerAnalytics } from '../types/Player';
-import { playersApi } from '../services/api';
+import { PlayerDto, UserDataResponseDto, PlayerAnalyticsDto, FilesResponseDto, ObjectsResponseDto } from '../types/Player';
+import { playersApi, handleApiError } from '../services/api';
 import PlayerAnalyticsChart from './PlayerAnalyticsChart';
 import './PlayerDetails.css';
 
@@ -10,12 +10,14 @@ interface PlayerDetailsProps {
 }
 
 const PlayerDetails: React.FC<PlayerDetailsProps> = ({ playFabId, onBack }) => {
-  const [player, setPlayer] = useState<Player | null>(null);
-  const [userData, setUserData] = useState<UserDataResponse | null>(null);
-  const [analytics, setAnalytics] = useState<PlayerAnalytics | null>(null);
+  const [player, setPlayer] = useState<PlayerDto | null>(null);
+  const [userData, setUserData] = useState<UserDataResponseDto | null>(null);
+  const [analytics, setAnalytics] = useState<PlayerAnalyticsDto | null>(null);
+  const [files, setFiles] = useState<FilesResponseDto | null>(null);
+  const [objects, setObjects] = useState<ObjectsResponseDto | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [activeTab, setActiveTab] = useState<'details' | 'userdata' | 'analytics'>('details');
+  const [activeTab, setActiveTab] = useState<'details' | 'userdata' | 'analytics' | 'files' | 'objects'>('details');
 
   useEffect(() => {
     fetchPlayerData();
@@ -28,10 +30,12 @@ const PlayerDetails: React.FC<PlayerDetailsProps> = ({ playFabId, onBack }) => {
       setError(null);
 
       // Fetch all player data in parallel
-      const [playerData, userDataResponse, analyticsData] = await Promise.allSettled([
+      const [playerData, userDataResponse, analyticsData, filesResponse, objectsResponse] = await Promise.allSettled([
         playersApi.getPlayerById(playFabId),
         playersApi.getUserData(playFabId),
         playersApi.getPlayerAnalytics(playFabId),
+        playersApi.getPlayerFiles(playFabId),
+        playersApi.getPlayerObjects(playFabId),
       ]);
 
       if (playerData.status === 'fulfilled') {
@@ -46,11 +50,20 @@ const PlayerDetails: React.FC<PlayerDetailsProps> = ({ playFabId, onBack }) => {
         setAnalytics(analyticsData.value);
       }
 
+      if (filesResponse.status === 'fulfilled') {
+        setFiles(filesResponse.value);
+      }
+
+      if (objectsResponse.status === 'fulfilled') {
+        setObjects(objectsResponse.value);
+      }
+
       if (playerData.status === 'rejected') {
         throw new Error('Failed to fetch player data');
       }
     } catch (err) {
-      setError('Failed to fetch player data. Please try again.');
+      const errorMessage = handleApiError(err);
+      setError(`Failed to fetch player data: ${errorMessage}`);
       console.error('Error fetching player data:', err);
     } finally {
       setLoading(false);
@@ -66,6 +79,33 @@ const PlayerDetails: React.FC<PlayerDetailsProps> = ({ playFabId, onBack }) => {
     if (value === null || value === undefined) return 'N/A';
     if (typeof value === 'object') return JSON.stringify(value, null, 2);
     return String(value);
+  };
+
+  const downloadFile = async (fileName: string) => {
+    try {
+      const blob = await playersApi.downloadPlayerFile(playFabId, fileName);
+      const url = window.URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = fileName;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      window.URL.revokeObjectURL(url);
+    } catch (err) {
+      console.error('Error downloading file:', err);
+      alert('Failed to download file');
+    }
+  };
+
+  const analyzeFile = async (fileName: string) => {
+    try {
+      const analysis = await playersApi.analyzePlayerFile(playFabId, fileName);
+      alert(`File Analysis:\nRows: ${analysis.rowCount}\nHeaders: ${analysis.headers.join(', ')}`);
+    } catch (err) {
+      console.error('Error analyzing file:', err);
+      alert('Failed to analyze file');
+    }
   };
 
   if (loading) {
@@ -122,6 +162,18 @@ const PlayerDetails: React.FC<PlayerDetailsProps> = ({ playFabId, onBack }) => {
           onClick={() => setActiveTab('analytics')}
         >
           Analytics
+        </button>
+        <button 
+          className={`tab ${activeTab === 'files' ? 'active' : ''}`}
+          onClick={() => setActiveTab('files')}
+        >
+          Files {files && `(${files.totalFiles})`}
+        </button>
+        <button 
+          className={`tab ${activeTab === 'objects' ? 'active' : ''}`}
+          onClick={() => setActiveTab('objects')}
+        >
+          Objects {objects && `(${objects.totalObjects})`}
         </button>
       </div>
 
@@ -226,6 +278,92 @@ const PlayerDetails: React.FC<PlayerDetailsProps> = ({ playFabId, onBack }) => {
               <div className="no-data">
                 <p>No analytics data available for this player.</p>
                 <p>Make sure the backend analytics service is working properly.</p>
+              </div>
+            )}
+          </div>
+        )}
+
+        {activeTab === 'files' && (
+          <div className="files-tab">
+            {files && files.files.length > 0 ? (
+              <div className="files-grid">
+                <div className="files-summary">
+                  <h3>Files Summary</h3>
+                  <p>Total Files: {files.totalFiles}</p>
+                  <p>Total Size: {(files.totalSizeBytes / 1024 / 1024).toFixed(2)} MB</p>
+                </div>
+                
+                {files.files.map((file) => (
+                  <div key={file.fileName} className="file-card">
+                    <h4>{file.fileName}</h4>
+                    <div className="file-info">
+                      <div className="info-row">
+                        <span className="label">Size:</span>
+                        <span className="value">{(file.fileSize / 1024).toFixed(2)} KB</span>
+                      </div>
+                      <div className="info-row">
+                        <span className="label">Type:</span>
+                        <span className="value">{file.contentType}</span>
+                      </div>
+                      <div className="info-row">
+                        <span className="label">Modified:</span>
+                        <span className="value">{formatDate(file.lastModified)}</span>
+                      </div>
+                    </div>
+                    <div className="file-actions">
+                      <button 
+                        onClick={() => downloadFile(file.fileName)}
+                        className="download-button"
+                      >
+                        Download
+                      </button>
+                      {file.contentType.includes('csv') && (
+                        <button 
+                          onClick={() => analyzeFile(file.fileName)}
+                          className="analyze-button"
+                        >
+                          Analyze
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <div className="no-data">
+                <p>No files available for this player.</p>
+              </div>
+            )}
+          </div>
+        )}
+
+        {activeTab === 'objects' && (
+          <div className="objects-tab">
+            {objects && objects.objects.length > 0 ? (
+              <div className="objects-grid">
+                <div className="objects-summary">
+                  <h3>Objects Summary</h3>
+                  <p>Total Objects: {objects.totalObjects}</p>
+                  <p>Profile Version: {objects.profileVersion}</p>
+                </div>
+                
+                {objects.objects.map((obj) => (
+                  <div key={obj.objectName} className="object-card">
+                    <h4>{obj.objectName}</h4>
+                    <div className="object-content">
+                      <pre>{JSON.stringify(obj.objectData, null, 2)}</pre>
+                    </div>
+                    <div className="object-meta">
+                      {obj.lastModified && (
+                        <span>Last Modified: {formatDate(obj.lastModified)}</span>
+                      )}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <div className="no-data">
+                <p>No objects available for this player.</p>
               </div>
             )}
           </div>

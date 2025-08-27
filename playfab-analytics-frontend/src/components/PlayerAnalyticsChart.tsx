@@ -10,7 +10,7 @@ import {
   ArcElement,
 } from 'chart.js';
 import { Bar, Doughnut } from 'react-chartjs-2';
-import { PlayerAnalytics } from '../types/Player';
+import { PlayerAnalyticsDto } from '../types/Player';
 import ErrorBoundary from './ErrorBoundary';
 import './PlayerAnalyticsChart.css';
 import './ErrorBoundary.css';
@@ -26,7 +26,7 @@ ChartJS.register(
 );
 
 interface PlayerAnalyticsChartProps {
-  analytics: PlayerAnalytics;
+  analytics: PlayerAnalyticsDto;
 }
 
 const PlayerAnalyticsChart: React.FC<PlayerAnalyticsChartProps> = ({ analytics }) => {
@@ -36,7 +36,7 @@ const PlayerAnalyticsChart: React.FC<PlayerAnalyticsChartProps> = ({ analytics }
   }
 
   // Prepare statistics data for bar chart
-  const statistics = analytics.statistics || {};
+  const statistics = analytics.accountSummary?.statistics || {};
   const statisticsLabels = Object.keys(statistics);
   const statisticsValues = Object.values(statistics).map(value => 
     typeof value === 'number' ? value : 0
@@ -74,7 +74,7 @@ const PlayerAnalyticsChart: React.FC<PlayerAnalyticsChartProps> = ({ analytics }
   };
 
   // Prepare linked accounts data for doughnut chart
-  const linkedAccounts = analytics.linkedAccounts || [];
+  const linkedAccounts = analytics.accountSummary?.linkedAccounts || [];
   const accountsData = {
     labels: linkedAccounts.length > 0 ? linkedAccounts : ['No Linked Accounts'],
     datasets: [
@@ -108,37 +108,13 @@ const PlayerAnalyticsChart: React.FC<PlayerAnalyticsChartProps> = ({ analytics }
     },
   };
 
-  const formatDate = (dateString?: string) => {
-    if (!dateString) return 'N/A';
-    try {
-      return new Date(dateString).toLocaleString();
-    } catch {
-      return 'Invalid Date';
-    }
-  };
 
-  const daysSinceCreation = () => {
-    if (!analytics.createdDate) return 0;
-    try {
-      const created = new Date(analytics.createdDate);
-      const now = new Date();
-      const diffTime = Math.abs(now.getTime() - created.getTime());
-      return Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-    } catch {
-      return 0;
-    }
-  };
-
-  const daysSinceLastActivity = () => {
-    if (!analytics.lastActivity) return 0;
-    try {
-      const lastActivity = new Date(analytics.lastActivity);
-      const now = new Date();
-      const diffTime = Math.abs(now.getTime() - lastActivity.getTime());
-      return Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-    } catch {
-      return 0;
-    }
+  const formatBytes = (bytes: number) => {
+    if (bytes === 0) return '0 Bytes';
+    const k = 1024;
+    const sizes = ['Bytes', 'KB', 'MB', 'GB'];
+    const i = Math.floor(Math.log(bytes) / Math.log(k));
+    return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
   };
 
   return (
@@ -147,14 +123,14 @@ const PlayerAnalyticsChart: React.FC<PlayerAnalyticsChartProps> = ({ analytics }
       <div className="analytics-summary">
         <div className="summary-card">
           <h3>Account Age</h3>
-          <div className="metric">{daysSinceCreation()} days</div>
-          <div className="sub-metric">Created: {formatDate(analytics.createdDate)}</div>
+          <div className="metric">{analytics.accountAge || 0} days</div>
+          <div className="sub-metric">Since creation</div>
         </div>
         
         <div className="summary-card">
-          <h3>Last Activity</h3>
-          <div className="metric">{daysSinceLastActivity()} days ago</div>
-          <div className="sub-metric">{formatDate(analytics.lastActivity)}</div>
+          <h3>Last Login</h3>
+          <div className="metric">{analytics.daysSinceLastLogin || 0} days ago</div>
+          <div className="sub-metric">Days since login</div>
         </div>
         
         <div className="summary-card">
@@ -165,17 +141,27 @@ const PlayerAnalyticsChart: React.FC<PlayerAnalyticsChartProps> = ({ analytics }
         
         <div className="summary-card">
           <h3>Linked Accounts</h3>
-          <div className="metric">{linkedAccounts.length}</div>
+          <div className="metric">{analytics.linkedAccountsCount}</div>
           <div className="sub-metric">Connected platforms</div>
         </div>
 
-        {analytics.userDataKeyCount !== undefined && (
-          <div className="summary-card">
-            <h3>User Data Keys</h3>
-            <div className="metric">{analytics.userDataKeyCount}</div>
-            <div className="sub-metric">Data entries</div>
-          </div>
-        )}
+        <div className="summary-card">
+          <h3>User Data</h3>
+          <div className="metric">{analytics.userDataKeysCount}</div>
+          <div className="sub-metric">Data keys</div>
+        </div>
+
+        <div className="summary-card">
+          <h3>Files</h3>
+          <div className="metric">{analytics.totalFilesCount}</div>
+          <div className="sub-metric">{formatBytes(analytics.totalFileSizeBytes)}</div>
+        </div>
+
+        <div className="summary-card">
+          <h3>Objects</h3>
+          <div className="metric">{analytics.totalObjectsCount}</div>
+          <div className="sub-metric">Stored objects</div>
+        </div>
       </div>
 
       <div className="charts-container">
@@ -190,14 +176,42 @@ const PlayerAnalyticsChart: React.FC<PlayerAnalyticsChartProps> = ({ analytics }
         </div>
       </div>
 
-      {analytics.userDataKeys && analytics.userDataKeys.length > 0 && (
+      {analytics.userDataSummary.availableKeys && analytics.userDataSummary.availableKeys.length > 0 && (
         <div className="userdata-keys-section">
-          <h3>Available User Data Keys</h3>
+          <h3>Available User Data Keys ({analytics.userDataSummary.totalEntries} total)</h3>
           <div className="keys-grid">
-            {analytics.userDataKeys.map((key, index) => (
+            {analytics.userDataSummary.availableKeys.map((key, index) => (
               <span key={index} className="key-badge">
                 {key}
               </span>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {analytics.filesSummary.files && analytics.filesSummary.files.length > 0 && (
+        <div className="files-section">
+          <h3>Files Summary ({analytics.filesSummary.totalFiles} files, {formatBytes(analytics.filesSummary.totalSizeBytes)})</h3>
+          <div className="files-list">
+            {analytics.filesSummary.files.map((file, index) => (
+              <div key={index} className="file-item">
+                <span className="file-name">{file.fileName}</span>
+                <span className="file-size">({formatBytes(file.fileSize)})</span>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {analytics.objectsSummary.objects && analytics.objectsSummary.objects.length > 0 && (
+        <div className="objects-section">
+          <h3>Objects Summary ({analytics.objectsSummary.totalObjects} objects)</h3>
+          <div className="objects-list">
+            {analytics.objectsSummary.objects.map((obj, index) => (
+              <div key={index} className="object-item">
+                <span className="object-name">{obj.objectName}</span>
+                <span className="object-type">{typeof obj.objectData}</span>
+              </div>
             ))}
           </div>
         </div>
